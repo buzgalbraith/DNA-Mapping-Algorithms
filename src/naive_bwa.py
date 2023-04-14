@@ -1,3 +1,20 @@
+def rank(G,c,i):
+    """
+    find occourances of charcter in string up to index i 
+    args: 
+    G input string
+    c charicter were looking for
+    i index to look up to 
+    """
+    j=0
+    out=0
+    while(j<i):
+        if(G[j]==c):
+            out=out+1
+        j+=1
+    return out 
+
+
 def bwa_run(band_start, band_end, read, index, bwt_reference, bands):
     """
     runs the bwa algorithm on a single read. 
@@ -12,27 +29,23 @@ def bwa_run(band_start, band_end, read, index, bwt_reference, bands):
     if band_start == band_end:
         return -1
     s = read[index]
-    rank_top = rank(bwt_ref,s,band_start)
-    rank_bottom = rank(bwt_ref,s,band_end)
+    rank_top = rank(bwt_reference,s,band_start)
+    rank_bottom = rank(bwt_reference,s,band_end)
     return bwa_run(bands[read[index]]+rank_top, bands[read[index]]+rank_bottom, read , index-1, bands=bands,bwt_reference=bwt_reference)
 
 
-def build_bands(ref):
-    """
-    builds the bands for a given reference genome 
-    args:
-    ref: (str) refereence genome
-    """
-    sorted_ref = sorted(ref)
-    bands = {}
-    prev_char = None
-    prev_index = 0
-    for i, char in enumerate(sorted_ref):
-        if char != prev_char:
-            bands[prev_char] = prev_index+1
-            prev_char = char
-            prev_index = i
-    bands[prev_char] = prev_index
+def build_band_array(read, reference,v="$"):
+    assert v not in reference,  "{0} already in input string".format(v)
+    ex = reference+v
+    bands={}
+    backwards_read=read[::-1]
+    bands[backwards_read[0]]=1
+    for char in set(reference):
+        if char not in backwards_read:
+            backwards_read=backwards_read+char
+    for i in range(1,len(backwards_read)):
+        bands[backwards_read[i]]=bands[backwards_read[i-1]]+reference.count(backwards_read[i-1])
+    bands[v]=0
     return bands
 
 
@@ -52,7 +65,7 @@ def suffix_array(reference, v='$'):
     return bwt, suffix_array
 
 def bwa(read, reference, v="$"):
-     """
+    """
     whole bwa algorithm
     args:
     read: (str) indivudal reading
@@ -66,3 +79,6 @@ def bwa(read, reference, v="$"):
     if indecies==-1:
         return "No match"
     return suffix_ref[indecies[0]]
+read="GCA"
+reference="CGATGCACCGGT"
+print(bwa(read, reference))
