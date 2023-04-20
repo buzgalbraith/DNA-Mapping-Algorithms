@@ -1,84 +1,167 @@
-def rank(G,c,i):
-    """
-    find occourances of charcter in string up to index i 
-    args: 
-    G input string
-    c charicter were looking for
-    i index to look up to 
-    """
+def generate_suffix_array(reference):
+    suffix_array = list(sorted(range(len(reference)), key=lambda i:reference[i:]))
+    return suffix_array
+
+def bwt(reference, suffix_array=None):
+    if suffix_array is None:
+        suffix_array = generate_suffix_array(reference)
+    bwt_ref = "".join(reference[idx - 1] for idx in suffix_array)
+    return bwt_ref
+def get_all_ranks(bwt_ref, letters=None):
+    if letters is None:
+        letters = set(bwt_ref)
+        
+    result = {letter:[0] for letter in letters}
+    result[bwt_ref[0]] = [1]
+    for letter in bwt_ref[1:]:
+        for i, j in result.items():
+            j.append(j[-1] + (i == letter))
+    return(result)
+
+def rank(bwt_ref,char,index):
     j=0
-    out=0
-    while(j<i):
-        if(G[j]==c):
-            out=out+1
+    occurrences=0
+    while(j<=index):
+        if(bwt_ref[j]==char):
+            occurrences=occurrences+1
         j+=1
-    return out 
+    return occurrences 
+
+def char_rank(bwt_ref, char):
+    ranks=[]
+    for i in range(len(bwt_ref)):
+        ranks.append(rank(bwt_ref, char, i))
+    return ranks
+
+def rank_mapping(bwt_ref, letters = None):
+    if letters is None:
+        letters = set(bwt_ref)
+
+    fixed_char_rank = lambda char: char_rank(bwt_ref, char)
+
+    result = {letter:fixed_char_rank(letter) for letter in letters}
+    return(result)
+
+def get_car_counts(reference):
+    d={}
+    for char in reference:
+        try:
+            d[char]=d[char]+1
+        except:
+            d[char]=1
+    return d 
 
 
-def bwa_run(band_start, band_end, read, index, bwt_reference, bands):
-    """
-    runs the bwa algorithm on a single read. 
-    args"
-    band_start, band_end: (int) index postions of band in reference genome 
-    read: (str)  a single sequence produced from a sequencer.
-    index: (int) current position in read 
-    """
 
-    if index == -1:
-        return band_start, band_end 
-    if band_start == band_end:
-        return -1
-    s = read[index]
-    rank_top = rank(bwt_reference,s,band_start)
-    rank_bottom = rank(bwt_reference,s,band_end)
-    return bwa_run(bands[read[index]]+rank_top, bands[read[index]]+rank_bottom, read , index-1, bands=bands,bwt_reference=bwt_reference)
-
-
-def build_band_array(read, reference,v="$"):
-    assert v not in reference,  "{0} already in input string".format(v)
-    ex = reference+v
-    bands={}
-    backwards_read=read[::-1]
-    bands[backwards_read[0]]=1
-    for char in set(reference):
-        if char not in backwards_read:
-            backwards_read=backwards_read+char
-    for i in range(1,len(backwards_read)):
-        bands[backwards_read[i]]=bands[backwards_read[i-1]]+reference.count(backwards_read[i-1])
-    bands[v]=0
-    return bands
-
-
-def suffix_array(reference, v='$'):
-    """
-    builds the suffix array 
-    args:
-    ref: (str) refereence genome
-    v: (char) charicter not in refernce array to be added. defaults to $
-    """
+def count_occurrences(reference, letters=None):
+    count = 0
+    result = {}
     
-    assert v not in reference,  "{0} already in input string".format(v)
-    reference = reference+v
-    suffixes = [reference[i:] for i in range(len(reference))]
-    suffix_array = sorted(range(len(reference)), key=lambda i: suffixes[i])
-    bwt = ''.join([reference[i-1] for i in suffix_array])
-    return bwt, suffix_array
+    if letters is None:
+        letters = set(reference)
+        
+    c = get_car_counts(reference)
+    
+    for letter in sorted(letters):
+        result[letter] = count
+        count += c[letter]
+    return result
 
-def bwa(read, reference, v="$"):
-    """
-    whole bwa algorithm
-    args:
-    read: (str) indivudal reading
-    ref: (str) refereence genome
-    v: (char) charicter not in refernce array to be added. defaults to $
-    """
-    bands = build_band_array(read,reference)
-    backwards_read = read[::-1]
-    bwt_ref, suffix_ref=suffix_array(reference,v=v)
-    indecies= bwa_run(bands[backwards_read[0]], bands[backwards_read[1]], read, index=len(read)-2, bwt_reference=bwt_ref , bands=bands)
-    if indecies==-1:
-        return "No match"
-    return suffix_ref[indecies[0]]
+
+
+def update(begin, end, char, rank_map, counts):
+    beginning = counts[char] + rank_map[char][begin - 1] + 1
+    ending = counts[char] + rank_map[char][end]
+    return(beginning,ending)
+
+
+
+def generate_all(reference, suffix_array=None, eos="$"):
+    letters = set(reference)
+    assert eos not in letters,  "{0} already in input string".format(eos)
+
+    counts = count_occurrences(reference, letters)
+
+    reference = "".join([reference, eos])
+    if suffix_array is None:
+        suffix_array = generate_suffix_array(reference)
+    bwt_ref = bwt(reference, suffix_array)
+    rank_map = rank_mapping(bwt_ref, letters | set([eos]))
+
+    for i, j in rank_map.items():
+        j.extend([j[-1], 0])
+
+    return letters, bwt_ref, rank_map, counts, suffix_array
+def bwa(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
+    
+    results = []
+     
+    if len(read) == 0:
+        return("Empty read")
+    if bwt_data is None:
+        bwt_data = generate_all(reference, suffix_array=suffix_array)
+    
+    letters, bwt, rank_map, count, suffix_array = bwt_data
+    
+    if len(letters) == 0:
+        return("Empty reference")
+
+    if not set(read) <= letters:
+        return []
+
+    length = len(bwt)
+
+    class Fuzzy(object):
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+    fuz = [Fuzzy(read=read, begin=0, end=len(bwt)-1, tolerance=tolerance)]
+
+    while len(fuz) > 0:
+        p = fuz.pop()
+        read = p.read[:-1]
+        last = p.read[-1]
+        all_letters = [last] if p.tolerance == 0 else letters
+        for letter in all_letters:
+            begin, end = update(p.begin, p.end, letter, rank_map, count)
+            if begin <= end:
+                if len(read) == 0:
+                    results.extend(suffix_array[begin : end + 1])
+                else:
+                    dist = p.tolerance
+                    if letter != last:
+                        dist = max(0, p.tolerance - 1)
+                    fuz.append(Fuzzy(read=read, begin=begin,
+                                            end=end, tolerance=dist))
+    return sorted(set(results))
+## testing 
+
+## case 1: simple case 
 read="GCA"
 reference="CGATGCACCGGT"
-print(bwa(read, reference))
+print(bwa(read, reference, tolerance=0))
+
+## case 2: where i failed last time 
+read="GCAG"
+reference="CGATGCACCGGTACTGGATCGATCGATCGAGTGCTAGCGTAGCGAGGCATGGATCAGGCAG"
+print(bwa(read, reference, tolerance=0))
+
+
+## case 3: no match 
+read="GCA"
+reference="GACGATGAACCGGTGCCA"
+print(bwa(read, reference, tolerance=0))
+
+## case 4: multiple matches. 
+read="GCA"
+reference="GCACGATGGCAAACCGGTGCGCACA"
+print(bwa(read, reference, tolerance=0))
+
+## case 5: read reads and references from the bowtie 2 github https://github.com/BenLangmead/bowtie2
+read_1 = 'TGAATGCGAACTCCGGGACGCTCAGTAATGTGACGATAGCTGAAAACTGTACGATAAACNGTACGCTGAGGGCAGAAAAAATCGTCGGGGACATTNTAAAGGCGGCGAGCGCGGCTTTTCCG'
+read_2 = 'NTTNTGATGCGGGCTTGTGGAGTTCAGCCGATCTGACTTATGTCATTACCTATGAAATGTGAGGACGCTATGCCTGTACCAAATCCTACAATGCCGGTGAAAGGTGCCGGGATCACCCTGTGGGTTTATAAGGGGATCGGTGACCCCTACGCGAATCCGCTTTCAGACGTTGACTGGTCGCGTCTGGCAAAAGTTAAAGACCTGACGCCCGGCGAACTGACCGCTGAGNCCTATGACGACAGCTATCTCGATGATGAAGATGCAGACTGGACTGC'
+read_3 = 'ATCGCCCGCAGACACCTTCACGCTGGACTGTTTCGGCTTTTACAGCGTCGCTTCATAATCCTTTTTCGCCGCCGCCATCAGCGTGTTGTAATCCGCCTGCAGGATTTTCCCGTCTTTCNGTGCCTTGNTCAGTTCTTCCTGACGGGCGGTATATTTCTGCAGCGGCGTCTGCAGCCGTTCGTNAGCCTTCTGCGCCTCTTCGGTATATTTCAGCCGTGACGCTTCGGTATCGCTCCGCTGCTGCGCATTTTTCTCCTCTTGAGTCTGCTGCTCAGCCTTCTTTCGGGCGGCTTCAAGCGCAAGACGGGCCTTTTCACGATCATCCCAGTAACGCGCCC'
+ref_file= open(r'/home/buzgalbraith/school/spring_2023/DNA-Mapping-Algorithms/data/lambda_virus.fa', "r")
+ref = ref_file.readlines()[1:]
+reference = "".join(ref).replace('\n', '')
+print(bwa(read_1, reference, tolerance=0))
