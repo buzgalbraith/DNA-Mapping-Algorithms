@@ -1,5 +1,6 @@
 import numpy as np 
 from collections import Counter
+
 def generate_suffix_array(reference_array):
     
     suffix_array = np.array(list(sorted(range(reference_array.shape[0]), key=lambda i:reference[i:])))
@@ -9,17 +10,23 @@ def bwt(reference_array, suffix_array):
     bwt_ref_array= reference_array[suffix_array-1]
     return bwt_ref_array
 
-def lf_mapping(bwt_ref, letters):  
-    result = {letter:np.zeros(bwt_ref.shape[0]+1).astype("int") for letter in letters}
-    result[bwt_ref[0]][0] = 1
-    k=1
-    for letter in bwt_ref[1:]:
-        for i, j in result.items():    
-            j[k] = (j[k-1] + int(i == letter))
-        k+=1
-    return(result)
+def lf_mapping(bwt_ref, letters):
+    result = {letter: np.zeros(bwt_ref.shape[0] , dtype=np.int32) for letter in letters}
+    counts = {letter: np.zeros(bwt_ref.shape[0] , dtype=np.int32) for letter in letters}
 
+    # initialize the first column of the count matrix
+    for letter, count in counts.items():
+        count[0] = np.sum(bwt_ref == letter)
 
+    # compute the count matrix using NumPy cumulative sum
+    for letter in letters:
+        mask = bwt_ref == letter
+        counts[letter] = np.cumsum(mask)
+
+    # compute the rank map using the count matrix
+    for letter in letters:
+        result[letter] = np.concatenate((counts[letter], np.array([0])))
+    return result
 def count_occurrences(reference_array, letters=None, ):
     count = 0
     result = {}
@@ -70,7 +77,7 @@ def bwa(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
     if len(letters) == 0:
         return("Empty reference")
 
-    if not set(read) <= set(letters):
+    if not set(read).issubset(letters):
         return []
 
     length = bwt.shape[0]
@@ -108,33 +115,33 @@ def bwa(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
                     fuz.append(Fuzzy(read=read, begin=begin,
                                             end=end, tolerance=dist))
     return sorted(set(results))
-# # case 1: simple case 
-# read="GCA"
-# reference="CGATGCACCGGT"
-# print(bwa(read, reference, tolerance=0))
+# case 1: simple case 
+read="GCA"
+reference="CGATGCACCGGT"
+print(bwa(read, reference, tolerance=0))
 
-# # case 2: where i failed last time 
-# read="GCAG"
-# reference="CGATGCACCGGTACTGGATCGATCGATCGAGTGCTAGCGTAGCGAGGCATGGATCAGGCAG"
-# print(bwa(read, reference, tolerance=0))
+# case 2: where i failed last time 
+read="GCAG"
+reference="CGATGCACCGGTACTGGATCGATCGATCGAGTGCTAGCGTAGCGAGGCATGGATCAGGCAG"
+print(bwa(read, reference, tolerance=0))
 
 
-# ## case 3: no match 
-# read="GCATTWO"
-# reference="GCATTWEDTI"
-# bwa(read, reference, tolerance=0)
+## case 3: no match 
+read="GCATTWO"
+reference="GCATTWEDTI"
+print(bwa(read, reference, tolerance=0))
 
-# # ## case 4: multiple matches. 
-# read="GCA"
-# reference="GCACGATGGCAAACCGGTGCGCACA"
-# print(bwa(read, reference, tolerance=0))
+# ## case 4: multiple matches. 
+read="GCA"
+reference="GCACGATGGCAAACCGGTGCGCACA"
+print(bwa(read, reference, tolerance=0))
 
-# #case 5: reads and references from the bowtie 2 github https://github.com/BenLangmead/bowtie2
+# # #case 5: reads and references from the bowtie 2 github https://github.com/BenLangmead/bowtie2
 read_1 = 'TGAATGCGAACTCCGGGACGCTCAGTAATGTGACGATAGCTGAAAACTGTACGATAAACNGTACGCTGAGGGCAGAAAAAATCGTCGGGGACATTNTAAAGGCGGCGAGCGCGGCTTTTCCG' ## 10m 5.3 second s
 read_2 = 'CGCCAAAAGTGAGAGGCACCTGTCAGATTGAGCGTGCAGCCAGTGAATCCCCGCATTTTATGCGTTTTCATGTTGCCTGCCCGCATTGCGGGGA'
 
-ref_file= open(r'/home/buzgalbraith/work/school/spring_2023/DNA-Mapping-Algorithms/data/lambda_virus.fa', "r")
-ref = ref_file.readlines()[1:]
-reference = "".join(ref).replace('\n', '')
+# ref_file= open(r'/home/buzgalbraith/work/school/spring_2023/DNA-Mapping-Algorithms/data/lambda_virus.fa', "r")
+# ref = ref_file.readlines()[1:]
+# reference = "".join(ref).replace('\n', '')
 
 print(bwa(read_2, reference, tolerance=0)) ## took 7 ish min returns the correct result that there is no match.
