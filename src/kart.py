@@ -1,4 +1,5 @@
 from bwa import bwa
+from copy import deepcopy
 
 class LMEM:
     """
@@ -74,7 +75,6 @@ def form_cluster(A, g):
     Return: A list of lists. Each of the sublist is a cluster of simple pairs that are g-close to each other.
     """
     A.sort(key=lambda x: x[2]-x[0], reverse=True)
-    print(A)
     clustered_A = [[A[0]]]
     
     for i in range(len(A)-1):
@@ -96,7 +96,11 @@ def form_candidate_region(clustered_A):
     Return: A list of lists. Each sublist is a candidate region.
     """
     
-    for cl in clustered_A:
+    for idx, cl in enumerate(clustered_A):
+        cl.sort(key=lambda x: x[0])
+        new_cl = deepcopy(cl)
+        
+        cnt = 0
         for i in range(len(cl)-1):
             this_sp, next_sp = cl[i], cl[i+1]
             
@@ -126,8 +130,10 @@ def form_candidate_region(clustered_A):
                 else:
                     normal_pair[2], normal_pair[3] = -1, -1
                 
-                cl.insert(i+1,normal_pair)
+                new_cl.insert(i+1+cnt,normal_pair)
+                cnt += 1
                 
+        clustered_A[idx] = new_cl
     return clustered_A
 
 
@@ -172,9 +178,13 @@ def pprint_align(clustered_A, R, G):
                     G_str += "-"*(p[1]-p[0]+1)
                     R_str += R[p[0]:p[1]+1]
                     aligned_str += " " * (p[1]-p[0]+1)
+                else:
+                    G_str += G[p[2]:p[3]+1]
+                    R_str += R[p[0]:p[1]+1]
+                    aligned_str += " " * (len(G[p[2]:p[3]+1]))
         
         G_str += G[cl[-1][3]+1: cl[-1][3]+1+len(R[cl[-1][1]:])]
-        R_str += R[cl[-1][1]:]
+        R_str += R[cl[-1][1]+1:]
         
         print("Index:    ", cl[0][2] - cl[0][0], " "*(len(G_str)-4), cl[-1][3]+1+len(R[cl[-1][1]:]))
         print("Reference:", G_str)
