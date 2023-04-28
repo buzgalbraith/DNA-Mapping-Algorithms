@@ -1,9 +1,10 @@
 import numpy as np 
 from collections import Counter
-
-def generate_suffix_array(reference_array):
+import random
+import re 
+def generate_suffix_array(reference):
     
-    suffix_array = np.array(list(sorted(range(reference_array.shape[0]), key=lambda i:reference[i:])))
+    suffix_array = np.array(list(sorted(range(len(reference)), key=lambda i:reference[i:])))
     return suffix_array.astype("int")
 
 def bwt(reference_array, suffix_array):
@@ -27,6 +28,11 @@ def lf_mapping(bwt_ref, letters):
     for letter in letters:
         result[letter] = np.concatenate((counts[letter], np.array([0])))
     return result
+
+
+
+
+
 def count_occurrences(reference_array, letters=None, ):
     count = 0
     result = {}
@@ -50,34 +56,31 @@ def generate_all(reference, suffix_array=None, eos="$"):
     assert eos not in letters,  "{0} already in input string".format(eos)
     reference = "".join([reference, eos])
     reference_array = np.array(list(reference))
-
     counts = count_occurrences(reference_array[:-1], letters)
     if suffix_array is None:
-        suffix_array = generate_suffix_array(reference_array)
+        suffix_array = generate_suffix_array(reference)
     bwt_ref = bwt(reference_array, suffix_array)
-
     rank_map = lf_mapping(bwt_ref,  letters | set([eos]) )
-
-    for i, j in rank_map.items():
-        np.append(j, [0])
-
+    for k in rank_map.keys():
+         rank_map[k]=np.hstack([rank_map[k],[rank_map[k][-1]],[0]])
+    #return rank_map
     return letters, bwt_ref, rank_map, counts, suffix_array
 
-def bwa(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
-
+def bwa_run(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
+   # print(reference)
     results = []
      
     if len(read) == 0:
         return("Empty read")
     if bwt_data is None:
         bwt_data = generate_all(reference, suffix_array=suffix_array)
-
+    #return bwt_data
     letters, bwt, rank_map, count, suffix_array = bwt_data
 
     if len(letters) == 0:
         return("Empty reference")
 
-    if not set(read).issubset(letters):
+    if not set(read) <= set(letters):
         return []
 
     length = bwt.shape[0]
@@ -114,34 +117,42 @@ def bwa(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
                         dist = max(0, p.tolerance - 1)
                     fuz.append(Fuzzy(read=read, begin=begin,
                                             end=end, tolerance=dist))
+  #  print(results)
     return sorted(set(results))
-# case 1: simple case 
-read="GCA"
-reference="CGATGCACCGGT"
-print(bwa(read, reference, tolerance=0))
+def bwa(ref_path, read_path, num_reads=100, tol=0):
+    reads = get_n_reads(read_path, num_reads=num_reads)
+    #reads = ['GTCGTTGACAGGACACGAGTAACTCGTCTATCTTCTGCAGGCTGCT']
+    ref = get_ref(ref_path)
+    print(ref)
+    for read in reads:
+        print(read)
+        print("--read")
+        print(bwa_run(read, ref, tolerance=tol))
 
-# case 2: where i failed last time 
-read="GCAG"
-reference="CGATGCACCGGTACTGGATCGATCGATCGAGTGCTAGCGTAGCGAGGCATGGATCAGGCAG"
-print(bwa(read, reference, tolerance=0))
 
 
-## case 3: no match 
-read="GCATTWO"
-reference="GCATTWEDTI"
-print(bwa(read, reference, tolerance=0))
 
-# ## case 4: multiple matches. 
-read="GCA"
-reference="GCACGATGGCAAACCGGTGCGCACA"
-print(bwa(read, reference, tolerance=0))
-
-# # #case 5: reads and references from the bowtie 2 github https://github.com/BenLangmead/bowtie2
-read_1 = 'TGAATGCGAACTCCGGGACGCTCAGTAATGTGACGATAGCTGAAAACTGTACGATAAACNGTACGCTGAGGGCAGAAAAAATCGTCGGGGACATTNTAAAGGCGGCGAGCGCGGCTTTTCCG' ## 10m 5.3 second s
-read_2 = 'CGCCAAAAGTGAGAGGCACCTGTCAGATTGAGCGTGCAGCCAGTGAATCCCCGCATTTTATGCGTTTTCATGTTGCCTGCCCGCATTGCGGGGA'
-
-# ref_file= open(r'/home/buzgalbraith/work/school/spring_2023/DNA-Mapping-Algorithms/data/lambda_virus.fa', "r")
-# ref = ref_file.readlines()[1:]
-# reference = "".join(ref).replace('\n', '')
-
-print(bwa(read_2, reference, tolerance=0)) ## took 7 ish min returns the correct result that there is no match.
+def get_n_reads(read_path, num_reads=100):
+    read_file = open(read_path)
+    total_reads = sum(1 for line in read_file) ## count total number of lines 
+    reads = []
+    i=0
+    while i<num_reads:
+        read_pos =  random.randrange(total_reads)
+        read_file.seek(read_pos)
+        read = read_file.readline()
+        try:
+            read = re.search('^[ACTG]{3,}[ACTG]$', read).group(0)
+            reads.append(read)
+            i+=1
+        except:
+            pass
+    return reads
+def get_ref(ref_path):
+    ref_file= open(ref_path, "r")
+    ref = ref_file.readlines()
+    ref = "".join(re.findall('[ACTG]',"".join(ref).replace('\n', '')))
+    return ref
+read_path = r'/home/buzgalbraith/work/school/spring_2023/DNA-Mapping-Algorithms/data/covid example/SRR11528307_R2.fastq'
+ref_path = r'/home/buzgalbraith/work/school/spring_2023/DNA-Mapping-Algorithms/data/covid example/SRR11528307_SarsCov2.fna'
+bwa(ref_path,read_path, num_reads=40)
