@@ -143,7 +143,7 @@ def get_n_reads(read_path, ref, num_reads=100, num_workers=10):
         #print(j)    
         match = re.search('^[ACTG]{3,}[ACTG]$', read) 
         if(match!=None):
-            l_read = re.search('^[ACTG]{3,}[ACTG]$', read).group(0)
+            l_read = re.search('^[ACTG]{7,}[ACTG]$', read).group(0)
             chunk_read_list.append({l_read:[]})
             i+=1
             j=j+1
