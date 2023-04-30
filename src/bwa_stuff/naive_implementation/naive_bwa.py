@@ -166,7 +166,7 @@ def get_n_reads(read_path, num_reads=100):
         read_file.seek(read_pos)
         read = read_file.readline()
         try:
-            read = re.search('^[ACTG]{3,}[ACTG]$', read).group(0)
+            read = re.search('^[ACTG]{7,}[ACTG]$', read).group(0)
             reads.append(read)
             i+=1
         except:
