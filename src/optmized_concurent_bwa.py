@@ -2,6 +2,8 @@ import numpy as np
 from collections import Counter
 import random
 import re 
+import os
+import timeit
 def generate_suffix_array(reference):
     
     suffix_array = np.array(list(sorted(range(len(reference)), key=lambda i:reference[i:])))
@@ -120,16 +122,16 @@ def bwa_run(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
   #  print(results)
     return sorted(set(results))
 def bwa(ref_path, read_path, num_reads=100, tol=0):
+    """ 
+    out is for if you want, to print out the results, this is more for validating. 
+    so if it is set to False, then the algorithm will just construct a dict that returns the matches for each sequence. 
+    """
     reads = get_n_reads(read_path, num_reads=num_reads)
-    #reads = ['GTCGTTGACAGGACACGAGTAACTCGTCTATCTTCTGCAGGCTGCT']
     ref = get_ref(ref_path)
-    print(ref)
-    for read in reads:
-        print(read)
-        print("--read")
-        print(bwa_run(read, ref, tolerance=tol))
-
-
+    out_dict = {}
+    for read in reads: 
+        out_dict[read] = bwa_run(read, ref, tolerance=tol)
+    return out_dict
 
 
 def get_n_reads(read_path, num_reads=100):
@@ -153,6 +155,22 @@ def get_ref(ref_path):
     ref = ref_file.readlines()
     ref = "".join(re.findall('[ACTG]',"".join(ref).replace('\n', '')))
     return ref
-read_path = r'/home/buzgalbraith/work/school/spring_2023/DNA-Mapping-Algorithms/data/covid example/SRR11528307_R2.fastq'
-ref_path = r'/home/buzgalbraith/work/school/spring_2023/DNA-Mapping-Algorithms/data/covid example/SRR11528307_SarsCov2.fna'
-bwa(ref_path,read_path, num_reads=40)
+
+try: ## makes sure that current path is in the data file from our github repo
+    os.chdir('..')
+    os.getcwd()
+    os.chdir('./data')  
+except: 
+    pass 
+read_path = 'SRR11528307_R2.fastq'
+ref_path = 'SRR11528307_SarsCov2.fna'
+#read_positions_dict = bwa(ref_path,read_path, num_reads=40)
+
+read_numbers = [5, 10]
+num_repeats = 5
+num_runs = 3
+for num_read in read_numbers:
+    timing = timeit.repeat('bwa(ref_path,read_path, num_reads={0})'.format(num_read),globals=globals(),repeat=num_repeats, number=num_runs)   
+    timing = list(map(lambda x: x/num_runs, timing)) ## the repeat function returns the sum of the run times so we take the mean of each repeat
+    print("for {0} reads\nrun times were {1}\nmean={2}, var={3} ".format(num_read, timing, np.mean(timing), np.var(timing)))
+    print("-"*50)

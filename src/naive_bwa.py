@@ -1,4 +1,5 @@
 import random 
+import os
 import re 
 def generate_suffix_array(reference):
     suffix_array = list(sorted(range(len(reference)), key=lambda i:reference[i:]))
@@ -139,15 +140,16 @@ def bwa_run(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
 ## testing 
 
 def bwa(ref_path, read_path, num_reads=100, tol=0):
+    """ 
+    out is for if you want, to print out the results, this is more for validating. 
+    so if it is set to False, then the algorithm will just construct a dict that returns the matches for each sequence. 
+    """
     reads = get_n_reads(read_path, num_reads=num_reads)
-    #reads = ['GTCGTTGACAGGACACGAGTAACTCGTCTATCTTCTGCAGGCTGCT']
     ref = get_ref(ref_path)
-    print(ref)
-    for read in reads:
-        print(read)
-        print("--read")
-        print(bwa_run(read, ref, tolerance=tol))
-
+    out_dict = {}
+    for read in reads: 
+        out_dict[read] = bwa_run(read, ref, tolerance=tol)
+    return out_dict
 
 
 
@@ -172,6 +174,13 @@ def get_ref(ref_path):
     ref = ref_file.readlines()
     ref = "".join(re.findall('[ACTG]',"".join(ref).replace('\n', '')))
     return ref
-read_path = r'/home/buzgalbraith/work/school/spring_2023/DNA-Mapping-Algorithms/data/covid example/SRR11528307_R2.fastq'
-ref_path = r'/home/buzgalbraith/work/school/spring_2023/DNA-Mapping-Algorithms/data/covid example/SRR11528307_SarsCov2.fna'
-bwa(ref_path,read_path, num_reads=40)
+try: ## makes sure that current path is in the data file from our github repo
+    os.chdir('..')
+    os.getcwd()
+    os.chdir('./data')  
+except: 
+    pass 
+read_path = 'SRR11528307_R2.fastq'
+ref_path = 'SRR11528307_SarsCov2.fna'
+
+bwa(ref_path,read_path, num_reads=1)
