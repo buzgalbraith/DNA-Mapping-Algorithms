@@ -3,6 +3,7 @@ import os
 import re 
 import timeit
 import numpy as np
+import sys
 def generate_suffix_array(reference):
     suffix_array = list(sorted(range(len(reference)), key=lambda i:reference[i:]))
     return suffix_array
@@ -186,9 +187,10 @@ except:
 read_path = 'SRR11528307_R2.fastq'
 ref_path = 'SRR11528307_SarsCov2.fna'
 
-read_numbers = [1]
-num_repeats = 1
-num_runs = 1
+num_repeats = int(sys.argv[1])
+num_runs = int(sys.argv[2])
+read_numbers = list(map(int, sys.argv[3:]))
+
 for num_read in read_numbers:
     timing = timeit.repeat('bwa(ref_path,read_path, num_reads={0})'.format(num_read),globals=globals(),repeat=num_repeats, number=num_runs)   
     timing = list(map(lambda x: x/num_runs, timing)) ## the repeat function returns the sum of the run times so we take the mean of each repeat
