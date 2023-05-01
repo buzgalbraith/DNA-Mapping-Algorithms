@@ -1,18 +1,14 @@
 from Bio import SeqIO
 import numpy as np
-from numpy import array
 import screed
 from sourmash import MinHash
 from sourmash.minhash import hash_murmur
 
-def split_fastq(fastq,processes):
+def load_fastq(fastq):
     fq_dict = SeqIO.index(fastq, "fastq")
-    num_keys = len(fq_dict)
-    keys_indices_to_keep = getrand_sample(np.arange(num_keys),-(num_keys//-3))#split reads by 1/3rd cus i think its a safe numb
-    fq_keys_to_keep = array(list(fq_dict.keys()))[keys_indices_to_keep]
-    return fq_keys_to_keep,fq_dict
+    return fq_dict
 
-def build_kmer_index(sequence, ksize):
+def build_kmer_index(sequence, ksize): #index, create kmers, and hash kmers from the sequence
     n_kmers = len(sequence) - ksize + 1
     mh = MinHash(n=0, ksize=ksize, scaled=1)
     kmer_index = {}
@@ -22,9 +18,6 @@ def build_kmer_index(sequence, ksize):
         else:
             kmer_index[hash_murmur(sequence[i:i + ksize])].append(i)
     return kmer_index,mh
-
-def getrand_sample(indices_array,size):
-    return np.random.choice(indices_array,size)
 
 def read_kmers_from_file(filename, ksize):
     kmerized_contigs = [] #each item holds a dictionary of indexed kmers for each contig
@@ -36,24 +29,24 @@ def read_kmers_from_file(filename, ksize):
 
     return kmerized_contigs
 
-def seed_frm_fastq(kmerized_contigs,fq_keys_to_keep,fq_dict,rev_comp,stop_extend):
+def seed_frm_fastq(kmerized_contigs,fq_dict,rev_comp):
     read_loc = {}
-    contig = kmerized_contigs[0][0]
+    contig = kmerized_contigs[0][0] #only working with first contig for this implementation
     mh = kmerized_contigs[0][1]
 
-    for key in fq_keys_to_keep:
+    for key in fq_dict.keys():
         seq_read = fq_dict[key].seq
         if rev_comp:
             seq_read = seq_read.reverse_complement()
-        print(key)
+        #print(key)
         hashed_kmerized_seq_read = mh.seq_to_hashes(str(seq_read),force=True)
         if len(hashed_kmerized_seq_read) < 1: continue
         if contig.get(hashed_kmerized_seq_read[0]) != None:
             i=0
             initial_read_indices = contig[hashed_kmerized_seq_read[0]]
 
-            while i < (len(hashed_kmerized_seq_read)-1) and i <= stop_extend: #by putting this while loop in the extend function, i can maybe minimize repetitive function calls
-                print(i,(len(hashed_kmerized_seq_read)-1))
+            while i < (len(hashed_kmerized_seq_read)-1): #by putting this while loop in the extend function, i can maybe minimize repetitive function calls
+                #print(i,(len(hashed_kmerized_seq_read)-1))
                 if contig.get(hashed_kmerized_seq_read[i]) == None:
                     break
                 else:
@@ -69,21 +62,18 @@ def seed_frm_fastq(kmerized_contigs,fq_keys_to_keep,fq_dict,rev_comp,stop_extend
     return read_loc
 
 def extend(initial_read_indices,contig,hashed_kmerized_seq_read,i):
-    print('prob line 66')
     if i != 0:
         initial_read_indices = contig[hashed_kmerized_seq_read[i]]
-    print('prob line 69')
     if contig.get(hashed_kmerized_seq_read[i+1]) == None:
         place = False
         return [place]
+
     read_indices_slide = contig[hashed_kmerized_seq_read[i+1]]
-    print('prev line fine')
     read_indices_slide = np.asarray(read_indices_slide)
     for loc in initial_read_indices: #the larger the k-mer_size specified the less this loop has to iterate
         idx = (np.abs(read_indices_slide - loc)).argmin()
         if read_indices_slide[idx] - loc == 1:
             place = True
-            print('working4')
             return [place,i,loc]
         else:
             place = False
@@ -99,12 +89,52 @@ def switch_dict_keys_values(read_loc): #this is hear b/c of my lack of foresight
             new_read_loc[v] = [k]
     return new_read_loc
 
-def create_contig_from_read_loc(new_read_loc):
+def fltr_found_reads_makeContig(new_read_loc,filename):
     sorted_keys = list(new_read_loc.keys())
     sorted_keys.sort()
-    reads_to_combine = [str(max(new_read_loc[key])) for key in sorted_keys]
-    contig = ''.join(reads_to_combine)
+    reads_to_combine = []
+    i = 0
+    while i < len(sorted_keys):
+        key = sorted_keys[i]
+        read = max(new_read_loc[key]) #grab largest read for a particular index
+        if i > 0 and key >= len(reads_to_combine[-1]) + tmp: #make sure reads dont overlap when combining
+            num_gaps = key - tmp -1 - len(reads_to_combine[-1])
+            reads_to_combine.extend(['-'] * num_gaps)
+            reads_to_combine.append(str(read))
+            tmp = key
+        if i == 0:
+            num_gaps = key - 1 #gaps between first nucleotide and where first contig is found
+            reads_to_combine.extend(['-']*num_gaps)
+            reads_to_combine.append(str(read))
+            tmp = key
+        i += 1
+
+    fasta = [record.sequence for record in screed.open(filename)]
+    true_contig_size = len(fasta[0])
+
+    out_contig = ''.join(reads_to_combine)
+    gaps_tofill = true_contig_size - len(out_contig)
+    gaps = '-' * gaps_tofill
+    res = out_contig + gaps
+    return res
+
+
+def run(): #runs functions in proper order
+    fasta,fastq = 'SRR11528307_SarsCov2.fasta','SRR11528307_R1.fastq'
+    ksize = 15
+    rev_comp = False
+
+    fq_dict = load_fastq(fastq)
+    kmerized_contigs = read_kmers_from_file(fasta, ksize)
+    print('Indexed contig...')
+    read_loc = seed_frm_fastq(kmerized_contigs,fq_dict,rev_comp)
+    print('Read kmers seeded and extended..')
+    read_loc_corrected = switch_dict_keys_values(read_loc)
+    contig = fltr_found_reads_makeContig(read_loc_corrected,fasta)
+    print('Combined found reads into a contig')
+
     return contig
 
+#contig = run()
 
 
