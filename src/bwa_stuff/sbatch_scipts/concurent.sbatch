@@ -10,4 +10,4 @@
 module purge
 module load python/intel/3.8.6
 cd ..
-python ./optmized_concurent_bwa.py 2 3 5 10 20 30 40 50 100 150 200 250
+python ./optimized_concurent/optmized_concurent_bwa.py 2 3 5 10 

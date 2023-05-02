@@ -5,15 +5,51 @@ import timeit
 import numpy as np
 import sys
 def generate_suffix_array(reference):
+    """
+    Generates the suffix array of a reference string.
+
+    Parameters:
+    -----------
+    reference: str
+        The reference string to generate the suffix array for.
+
+    Returns:
+    --------
+    List : A list of indices that represents the suffix array of the input reference string.
+    """
     suffix_array = list(sorted(range(len(reference)), key=lambda i:reference[i:]))
     return suffix_array
 
 def bwt(reference, suffix_array=None):
+    """
+    Generates the Burrows-Wheeler Transform (BWT) of a reference string using its suffix array.
+
+    Parameters:
+    -----------
+    reference: str
+        reference string.
+    suffix_array: list
+        The suffix array of the reference string.
+
+    Returns:
+    --------
+    str: the BWT of the input reference string.
+    """
     if suffix_array is None:
         suffix_array = generate_suffix_array(reference)
     bwt_ref = "".join(reference[idx - 1] for idx in suffix_array)
     return bwt_ref
 def get_all_ranks(bwt_ref, letters=None):
+    """
+    Returns a dictionary containing the rank of each letter in the Burrows-Wheeler Transform of the reference string.
+
+    Args:
+    - bwt_ref (str): The Burrows-Wheeler Transform of the reference string.
+    - letters (set, optional): The set of letters to get the ranks for. If not specified, the set of all unique characters in bwt_ref is used.
+
+    Returns:
+    - dict: A dictionary where the keys are the letters in letters and the values are lists of integers representing the rank of each occurrence of the letter in bwt_ref.
+    """
     if letters is None:
         letters = set(bwt_ref)
         
@@ -25,6 +61,17 @@ def get_all_ranks(bwt_ref, letters=None):
     return(result)
 
 def rank(bwt_ref,char,index):
+    """
+    counts accourances of one charecter up to a certain point in the string. 
+
+    Args:
+    - bwt_ref (str): The Burrows-Wheeler Transform of the reference string.
+    - char (str): The character to count the occurrences of.
+    - index (int): The number of characters to consider from the beginning of bwt_ref.
+
+    Returns:
+    - int: The number of occurrences of char in the first index characters of bwt_ref.
+    """
     j=0
     occurrences=0
     while(j<=index):
@@ -34,12 +81,31 @@ def rank(bwt_ref,char,index):
     return occurrences 
 
 def char_rank(bwt_ref, char):
+    """
+    get the rank for for a single charicter at every position in an array
+
+    Args:
+    - bwt_ref (str): The Burrows-Wheeler Transform of the reference string.
+    - char (str): The character to count the occurrences of.
+    Returns:
+    - dict: The rank mapping of that charicter
+    """
     ranks=[]
     for i in range(len(bwt_ref)):
         ranks.append(rank(bwt_ref, char, i))
     return ranks
 
 def rank_mapping(bwt_ref, letters = None):
+    """
+    Returns a dictionary containing the rank of each letter in each prefix of bwt_ref.
+
+    Args:
+    - bwt_ref (str): The Burrows-Wheeler Transform of the reference string.
+    - letters (set, optional): The set of letters to get the ranks for. If not specified, the set of all unique characters in bwt_ref is used.
+
+    Returns:
+    - dict: A dictionary where the keys are the letters in letters and the values are lists of integers representing the rank of each occurrence of the letter in each prefix of bwt_ref.
+    """
     if letters is None:
         letters = set(bwt_ref)
 
@@ -49,6 +115,15 @@ def rank_mapping(bwt_ref, letters = None):
     return(result)
 
 def get_car_counts(reference):
+    """
+    counts total occourances of each letter in a reference
+    
+    Args:
+    str: refernce, refernce string
+    
+    Returns:
+    dict: dictionary mapping each letter to its total number of occourances. 
+    """
     d={}
     for char in reference:
         try:
@@ -60,6 +135,19 @@ def get_car_counts(reference):
 
 
 def count_occurrences(reference, letters=None):
+    """
+    Counts the number of occurrences of each character in a reference string.
+
+    Parameters:
+    -----------
+    reference: str: The reference string.
+    letters: set, optional The set of unique characters in the reference string. If None, this will be inferred from the input.
+
+    Returns:
+    --------
+    dict
+        A dictionary mapping each character in the input set to the total number of occurrences in the reference string.
+    """
     count = 0
     result = {}
     
@@ -76,6 +164,27 @@ def count_occurrences(reference, letters=None):
 
 
 def update(begin, end, char, rank_map, counts):
+    """
+    Updates the beginning and ending indices for a partial match based on a single character.
+
+    Parameters:
+    -----------
+    begin: int
+        The beginning index of the partial match.
+    end: int
+        The ending index of the partial match.
+    char: str
+        The character to use for the update.
+    rank_map: dict
+        A dictionary mapping each character to an array of indices in the BWT.
+    counts: dict
+        A dictionary mapping each character to the total number of occurrences in the reference string.
+
+    Returns:
+    --------
+    tuple
+        A tuple of two integers representing the new beginning and ending indices for the partial match.
+    """
     beginning = counts[char] + rank_map[char][begin - 1] + 1
     ending = counts[char] + rank_map[char][end]
     return(beginning,ending)
@@ -83,6 +192,28 @@ def update(begin, end, char, rank_map, counts):
 
 
 def generate_all(reference, suffix_array=None, eos="$"):
+    """
+    Generates all data structures needed for BWA alignment.
+
+    Parameters:
+    -----------
+    reference: str
+        The reference string to generate the data structures for.
+    suffix_array: list optional
+        The suffix array of the reference string. If None, this will be generated automatically.
+    eos: str, optional
+        The end-of-string character to add to the end of the reference string.
+
+    Returns:
+    --------
+    tuple
+        A tuple of five items:
+            1. A set of unique characters in the reference string.
+            2. The BWT of the reference string.
+            3. A dictionary mapping each character to an array of indices in the BWT.
+            4. A dictionary mapping each character to the total number of occurrences in the reference string.
+            5. The suffix array of the reference string.
+    """
     letters = set(reference)
     assert eos not in letters,  "{0} already in input string".format(eos)
 
@@ -98,7 +229,24 @@ def generate_all(reference, suffix_array=None, eos="$"):
         j.extend([j[-1], 0])
 
     return letters, bwt_ref, rank_map, counts, suffix_array
-def bwa_run(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
+def bwa_run(read, reference, bwt_data=None, suffix_array=None):
+    """
+    Runs Burrows-Wheeler Aligner (BWA) algorithm on a single read and a reference sequence.
+
+    Parameters:
+    read (str): A string representing the read to be aligned.
+    reference (str): A string representing the reference genome sequence.
+    bwt_data (tuple, optional): A tuple containing Burrows-Wheeler Transform (BWT) data 
+                                generated from reference genome sequence. Defaults to None.
+    suffix_array) lisr, optional: An array containing the suffix array generated
+                                            from reference genome sequence. Defaults to None.
+
+    Returns:
+    list: A list of integers representing the positions of read in the reference genome sequence.
+          Returns an empty list if the read contains characters that are not in the reference genome 
+          sequence, or if either the read or the reference genome sequence is empty.
+
+    """
     
     results = []
      
@@ -117,46 +265,70 @@ def bwa_run(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
 
     length = len(bwt)
 
-    class Fuzzy(object):
+    class match_dict(object):
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
 
-    fuz = [Fuzzy(read=read, begin=0, end=len(bwt)-1, tolerance=tolerance)]
+    working_dict = [match_dict(read=read, begin=0, end=len(bwt)-1)]
 
-    while len(fuz) > 0:
-        p = fuz.pop()
+
+    i=0
+    while len(working_dict) > 0:
+        i=i+1
+        p = working_dict.pop()
+
+
         read = p.read[:-1]
         last = p.read[-1]
-        all_letters = [last] if p.tolerance == 0 else letters
+
+        all_letters = [last] 
+
         for letter in all_letters:
             begin, end = update(p.begin, p.end, letter, rank_map, count)
+
             if begin <= end:
                 if len(read) == 0:
+
                     results.extend(suffix_array[begin : end + 1])
-                else:
-                    dist = p.tolerance
-                    if letter != last:
-                        dist = max(0, p.tolerance - 1)
-                    fuz.append(Fuzzy(read=read, begin=begin,
-                                            end=end, tolerance=dist))
+                
+                    working_dict.append(match_dict(read=read, begin=begin,
+                                            end=end))
     return sorted(set(results))
 ## testing 
 
-def bwa(ref_path, read_path, num_reads=100, tol=0):
-    """ 
-    out is for if you want, to print out the results, this is more for validating. 
-    so if it is set to False, then the algorithm will just construct a dict that returns the matches for each sequence. 
+def bwa(ref_path, read_path, num_reads=100):
+    """
+    bwa function takes a reference file path, a read file path and an optional parameter of number of reads to process. It uses the bwa algorithm to align each read in the read file to the reference sequence and returns a dictionary with the matches for each read.
+    
+    Args:
+    
+    ref_path (str): path to the reference file.
+    read_path (str): path to the read file.
+    num_reads (int): number of reads to process. Default is 100.
+    Returns:
+    
+    out_dict (dict): A dictionary where each key is a read sequence and the corresponding value is a list of matches in the reference sequence. If out is set to False, then a dictionary is returned containing only the matches for each sequence.
     """
     reads = get_n_reads(read_path, num_reads=num_reads)
     ref = get_ref(ref_path)
     out_dict = {}
     for read in reads: 
-        out_dict[read] = bwa_run(read, ref, tolerance=tol)
+        out_dict[read] = bwa_run(read, ref)
     return out_dict
 
 
 
 def get_n_reads(read_path, num_reads=100):
+    """
+    Reads a fastq file and extracts a specified number of reads randomly.
+    
+    Args:
+        read_path (str): The path to the fastq file to read.
+        num_reads (int, optional): The number of reads to extract. Default is 100.
+        
+    Returns:
+        list: A list of reads with length num_reads, each read being a string of nucleotide bases.
+    """
     read_file = open(read_path)
     total_reads = sum(1 for line in read_file) ## count total number of lines 
     reads = []
@@ -173,11 +345,21 @@ def get_n_reads(read_path, num_reads=100):
             pass
     return reads
 def get_ref(ref_path):
+    """
+    Reads a reference file and extracts the nucleotide bases.
+    
+    Args:
+        ref_path (str): The path to the reference file to read.
+        
+    Returns:
+        str: A string containing only the nucleotide bases of the reference genome.
+    """    
     ref_file= open(ref_path, "r")
     ref = ref_file.readlines()
     ref = "".join(re.findall('[ACTG]',"".join(ref).replace('\n', '')))
     return ref
 try: ## makes sure that current path is in the data file from our github repo
+    os.chdir('..')
     os.chdir('..')
     os.chdir('..')
     os.getcwd()

@@ -95,23 +95,23 @@ def bwa_run(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
 
     length = bwt.shape[0]
 
-    class Fuzzy(object):
+    class match_dict(object):
         def __init__(self, **kwargs):
             self.__dict__.update(kwargs)
 
-    fuz = [Fuzzy(read=read, begin=0, end=len(bwt)-1, tolerance=tolerance)]
+    working_dict = [match_dict(read=read, begin=0, end=len(bwt)-1)]
 
 
     i=0
-    while len(fuz) > 0:
+    while len(working_dict) > 0:
         i=i+1
-        p = fuz.pop()
+        p = working_dict.pop()
 
 
         read = p.read[:-1]
         last = p.read[-1]
 
-        all_letters = [last] if p.tolerance == 0 else letters
+        all_letters = [last] 
 
         for letter in all_letters:
             begin, end = update(p.begin, p.end, letter, rank_map, count)
@@ -120,13 +120,10 @@ def bwa_run(read, reference, tolerance=0, bwt_data=None, suffix_array=None):
                 if len(read) == 0:
 
                     results.extend(suffix_array[begin : end + 1])
-                else:
-                    dist = p.tolerance
-                    if letter != last:
                 
-                        dist = max(0, p.tolerance - 1)
-                    fuz.append(Fuzzy(read=read, begin=begin,
-                                            end=end, tolerance=dist))
+                    working_dict.append(match_dict(read=read, begin=begin,
+                                            end=end))
+    return sorted(set(results))
     return sorted(set(results))
 def get_n_reads(read_path, ref, num_reads=100, num_workers=10):
     read_file = open(read_path)

@@ -10,4 +10,5 @@
 module purge
 module load python/intel/3.8.6
 cd ..
-python ./naive_bwa.py 2 3 1 5 
+cd ./naive_implementation
+python ./naive_bwa.py 1 1 1 

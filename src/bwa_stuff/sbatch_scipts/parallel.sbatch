@@ -13,4 +13,5 @@ module load openmpi/intel/4.0.5
 
 
 cd ..
+cd ./optimized_parallel
 python ./bwa_optimization_call.py 5 2 3 5 10 20 30 40 50 100 150 200 250
