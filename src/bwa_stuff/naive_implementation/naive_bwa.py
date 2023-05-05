@@ -39,26 +39,6 @@ def bwt(reference, suffix_array=None):
         suffix_array = generate_suffix_array(reference)
     bwt_ref = "".join(reference[idx - 1] for idx in suffix_array)
     return bwt_ref
-def get_all_ranks(bwt_ref, letters=None):
-    """
-    Returns a dictionary containing the rank of each letter in the Burrows-Wheeler Transform of the reference string.
-
-    Args:
-    - bwt_ref (str): The Burrows-Wheeler Transform of the reference string.
-    - letters (set, optional): The set of letters to get the ranks for. If not specified, the set of all unique characters in bwt_ref is used.
-
-    Returns:
-    - dict: A dictionary where the keys are the letters in letters and the values are lists of integers representing the rank of each occurrence of the letter in bwt_ref.
-    """
-    if letters is None:
-        letters = set(bwt_ref)
-        
-    result = {letter:[0] for letter in letters}
-    result[bwt_ref[0]] = [1]
-    for letter in bwt_ref[1:]:
-        for i, j in result.items():
-            j.append(j[-1] + (i == letter))
-    return(result)
 
 def rank(bwt_ref,char,index):
     """
